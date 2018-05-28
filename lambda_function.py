@@ -1,5 +1,12 @@
 """High level imports for this and that"""
 from __future__ import print_function
+from datetime import datetime, date
+import calendar
+
+from pytz import timezone
+
+from api import alpha_vantage as av
+from api import ticker_symbol as ts
 
 # --------------- Helpers that build all of the responses ----------------------
 
@@ -38,30 +45,71 @@ def build_response(session_attributes, speechlet_response):
 def get_welcome_response():
     session_attributes = {}
     card_title = 'Welcome'
-    speech_output = 'Hi, welcome to Stock Checker.'
+    speech_output = 'Hi, welcome to Stock Buddy.'
     reprompt_text = 'For help, please say: menu.'
     return builder(session_attributes, card_title, speech_output, reprompt_text, False)
 
 
 def handle_session_end_request():
     card_title = 'Session Ended'
-    speech_output = 'Thank you for using Stock Checker. Have a nice day!'
-    return build_response({}, build_speechlet_response(card_title, speech_output, None, True))
+    speech_output = 'Thank you for using Stock Buddy. Have a nice day!'
+    return builder({}, card_title, speech_output, None, True)
+
 
 # --------------- Intents ---------------
 
 
-def handle_stock_lookup(intent, session):
+def handle_stock_portfolio(intent, session):
+    """Returns the stock symbol and add it into list"""
+    # TODO: later for more features
+    return None
+
+def handle_portfolio_contents(intent, session):
+    """Returns the contents of your portfolio"""
+    # TODO: later for more features
+    return None
+
+def handle_stock_info(intent, session):
     """Returns the stock information"""
     session_attributes = session.get('attributes', {})
     speech_output = ''
     reprompt_text = 'Is there anything else you would like to know? If not, say stop.'
-    card_title = None
+    card_title = 'Stock Information'
     should_end_session = False
-    return builder(session_attributes, card_title, speech_output, reprompt_text, should_end_session)
+    if weekend_checker() is False and 'value' in intent['slots']['company']:
+        date_input = date.strftime(date.today(), '%Y-%m-%d')
+        company = intent['slots']['company']['value']
+        ticker_symbol = ts.get_symbol(ts.filter_tags(company))
+        latest_data = av.daily_single_stock(ticker_symbol)
+        speech_output = av.format_singles(latest_data, date_input)
+        return builder(session_attributes, card_title, speech_output, reprompt_text, should_end_session)
+    elif weekend_checker() is True and 'value' in intent['slots']['company']:
+        company = intent['slots']['company']['value']
+        speech_output = f'Stocks are not being traded on the weekends.\
+    However, I can provide the latest information on {company}'
+        ticker_symbol = ts.get_symbol(ts.filter_tags(company))
+        latest_data = av.daily_single_stock(ticker_symbol)
+        speech_output = ' '.join([speech_output, av.format_singles(latest_data, return_latest(ticker_symbol))])
+        return builder(session_attributes, card_title, speech_output, reprompt_text, should_end_session)
 
 
 # --------------- Helper Functions ---------------
+
+def weekend_checker():
+    """
+    Checks to see if the current day is a weekend or not
+    returns boolean value
+    """
+    check = calendar.day_name[datetime.now(timezone('US/Eastern')).weekday()]
+    return bool(check in ['Saturday', 'Sunday'])
+
+
+def return_latest(symbol):
+    """Returns the first date in the stocks data"""
+    data = av.daily_single_stock(symbol)
+    latest_info = list(data['Time Series (Daily)'].keys())[0]
+    return latest_info
+
 
 def builder(session, card, out, reprompt, end):
     """helper function to return response"""
@@ -99,8 +147,10 @@ def on_intent(intent_request, session):
     intent = intent_request['intent']
     intent_name = intent_request['intent']['name']
 
-    if intent_name == 'StockSearchIntent':
-        return handle_stock_lookup(intent, session)
+    if intent_name == 'StockInfo':
+        return handle_stock_info(intent, session)
+    if intent_name == 'StockPortfolio':
+        return handle_stock_portfolio(intent, session)
     elif intent_name == 'AMAZON.CancelIntent' or intent_name == 'AMAZON.StopIntent':
         return handle_session_end_request()
     else:

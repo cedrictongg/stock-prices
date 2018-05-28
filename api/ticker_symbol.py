@@ -6,14 +6,14 @@ import requests
 def filter_tags(company):
     """Returns the symbol for the specified company"""
     site = requests.get(f'https://www.google.com/search?q={company}+stock+symbol')
-    soup = BeautifulSoup(site.text, 'lxml')
+    soup = BeautifulSoup(site.text, 'html.parser')
     potential_links = soup.find_all('cite')
     return potential_links
 
 
 def get_symbol(links):
     """
-    Grab the first link with matching phrase and take
+    Grab the first link with matching phrase and returns
     the symbol from the link
     """
     symbol = None
