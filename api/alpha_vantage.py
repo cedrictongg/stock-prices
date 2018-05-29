@@ -9,13 +9,14 @@ def daily_single_stock(symbol):
     """Grab stock data"""
     function = 'TIME_SERIES_DAILY'
     url = f'{config.url}function={function}&symbol={symbol}&apikey={config.api_key}'
+    print(url)
     req = requests.get(f'{url}&outputsize=compact')
-    # print(json.loads(req.text))
     return json.loads(req.text)
 
 
 def format_singles(stock_data, stock_date):
     """Formatting the output of data"""
+    print(stock_data)
     symbol = stock_data['Meta Data']['2. Symbol']
     daily = stock_data['Time Series (Daily)']
     stock_open = '{:.2f}'.format(float(daily[stock_date]['1. open']))
