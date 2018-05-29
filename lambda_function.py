@@ -45,14 +45,14 @@ def build_response(session_attributes, speechlet_response):
 def get_welcome_response():
     session_attributes = {}
     card_title = 'Welcome'
-    speech_output = 'Hi, welcome to Stock Buddy.'
-    reprompt_text = 'For help, please say: menu.'
+    speech_output = 'Hi, welcome to Stock Buddy. If you need help, just ask.'
+    reprompt_text = 'For help, please say: help.'
     return builder(session_attributes, card_title, speech_output, reprompt_text, False)
 
 
 def handle_session_end_request():
     card_title = 'Session Ended'
-    speech_output = 'Thank you for using Stock Buddy. Have a nice day!'
+    speech_output = 'Thank you for using Stock Buddy. Have a good one!'
     return builder({}, card_title, speech_output, None, True)
 
 
@@ -76,10 +76,13 @@ def handle_stock_info(intent, session):
     reprompt_text = 'Is there anything else you would like to know? If not, say stop.'
     card_title = 'Stock Information'
     should_end_session = False
+    print('stock info intent')
     if weekend_checker() is False and 'value' in intent['slots']['company']:
         date_input = date.strftime(date.today(), '%Y-%m-%d')
         company = intent['slots']['company']['value']
+        print(company)
         ticker_symbol = ts.get_symbol(ts.filter_tags(company))
+        print(ticker_symbol)
         latest_data = av.daily_single_stock(ticker_symbol)
         speech_output = av.format_singles(latest_data, date_input)
         return builder(session_attributes, card_title, speech_output, reprompt_text, should_end_session)
@@ -92,6 +95,25 @@ def handle_stock_info(intent, session):
         speech_output = ' '.join([speech_output, av.format_singles(latest_data, return_latest(ticker_symbol))])
         return builder(session_attributes, card_title, speech_output, reprompt_text, should_end_session)
 
+
+def handle_help(intent, session):
+    """Returns the options available within the skill"""
+    print('help intent')
+    session_attributes = session.get('attributes', {})
+    reprompt_text = 'Is there anything else you would like to know? If not, say stop.'
+    card_title = 'Help Menu'
+    should_end_session = False
+    speech_output = 'You can do the following:'
+    speech_output = ' '.join([speech_output, '\nLook up a publicly traded company stock info.'])
+    speech_output = ' '.join([speech_output, 'For example, stocks for Amazon.'])
+    return builder(session_attributes, card_title, speech_output, reprompt_text, should_end_session)
+
+
+def handle_fallback(intent, session):
+    """Handles all the bad requests to the Skill"""
+    session_attributes = session.get('attributes', {})
+    speech_output = 'Sorry, Stock Buddy cannot help with that. For what I can do, please say, help.'
+    return builder(session_attributes, 'Request Error', speech_output, speech_output, False)
 
 # --------------- Helper Functions ---------------
 
@@ -149,8 +171,12 @@ def on_intent(intent_request, session):
 
     if intent_name == 'StockInfo':
         return handle_stock_info(intent, session)
-    if intent_name == 'StockPortfolio':
+    elif intent_name == 'StockPortfolio':
         return handle_stock_portfolio(intent, session)
+    elif intent_name == 'AMAZON.HelpIntent':
+        return handle_help(intent, session)
+    elif intent_name == 'AMAZON.FallbackIntent':
+        return handle_fallback(intent, session)
     elif intent_name == 'AMAZON.CancelIntent' or intent_name == 'AMAZON.StopIntent':
         return handle_session_end_request()
     else:
