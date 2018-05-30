@@ -13,6 +13,7 @@ def filter_tags(company):
         potential_links = soup.find_all('cite')
         return potential_links
 
+
 def get_symbol(links):
     """
     Grab the first link with matching phrase and returns
