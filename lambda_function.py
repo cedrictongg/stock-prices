@@ -76,30 +76,36 @@ def handle_stock_info(intent, session):
     speech_output = ''
     reprompt_text = 'Is there anything else you would like to know? If not, say stop.'
     card_title = 'Stock Information'
-    should_end_session = False
     print('stock info intent')
-    if weekend_checker() is False and 'value' in intent['slots']['company']:
+    if weekend_checker() is False and time_checker() is True and 'value' in intent['slots']['company']:
+        print('not weekend and after opening')
         company = intent['slots']['company']['value']
         ticker_symbol = ts.get_symbol(ts.filter_tags(company))
         latest_data = av.daily_intraday_stock(ticker_symbol)
         speech_output = av.open_format_intraday(latest_data)
-        return builder(session_attributes, card_title, speech_output, reprompt_text, should_end_session)
-    elif weekend_checker() is True and 'value' in intent['slots']['company']:
-        company = intent['slots']['company']['value']
-        speech_output = f'Stocks are not being traded on the weekends.\
-    However, I can provide the latest information on {company}'
-        ticker_symbol = ts.get_symbol(ts.filter_tags(company))
-        latest_data = av.daily_single_stock(ticker_symbol)
-        speech_output = ' '.join([speech_output, av.closed_format_singles(latest_data, return_latest(ticker_symbol))])
-        return builder(session_attributes, card_title, speech_output, reprompt_text, should_end_session)
     elif weekend_checker() is False and time_checker() is False and 'value' in intent['slots']['company']:
+        print('not weekend and before opening')
         company = intent['slots']['company']['value']
-        speech_output = f'Stocks are not currently being traded. They open at 9:30 AM Eastern\
+        speech_output = f'The stock market is currently closed.\
     However, I can provide the latest information on {company}.'
         ticker_symbol = ts.get_symbol(ts.filter_tags(company))
         latest_data = av.daily_single_stock(ticker_symbol)
-        speech_output = ' '.join([speech_output, av.closed_format_singles(latest_data, return_latest(ticker_symbol))])
-        return builder(session_attributes, card_title, speech_output, reprompt_text, should_end_session)
+        if return_latest(ticker_symbol):
+            speech_output = ' '.join([speech_output, av.closed_format_singles(latest_data, return_latest(ticker_symbol))])
+        else:
+            speech_output = 'I could not find any stock information about that company.'
+    elif weekend_checker() is True and 'value' in intent['slots']['company']:
+        print('is weekend')
+        company = intent['slots']['company']['value']
+        speech_output = f'Stocks are not being traded on the weekends. \
+However, I can provide the latest information on {company}.'
+        ticker_symbol = ts.get_symbol(ts.filter_tags(company))
+        latest_data = av.daily_single_stock(ticker_symbol)
+        if return_latest(ticker_symbol):
+            speech_output = ' '.join([speech_output, av.closed_format_singles(latest_data, return_latest(ticker_symbol))])
+        else:
+            speech_output = 'I could not find any stock information about that company.'
+    return builder(session_attributes, card_title, speech_output, reprompt_text, True)
 
 
 def handle_help(intent, session):
@@ -126,7 +132,6 @@ def handle_fallback(intent, session):
 def weekend_checker():
     """
     Checks to see if the current day is a weekend or not
-    returns boolean value
     """
     check = calendar.day_name[datetime.now(timezone('US/Eastern')).weekday()]
     return bool(check in ['Saturday', 'Sunday'])
@@ -135,22 +140,16 @@ def weekend_checker():
 def time_checker():
     """Checks to see if the stock market is open."""
     _ = datetime.now(timezone('US/Eastern'))
-    time = {'hours': _.strftime('%H'), 'minutes': _.strftime('%M')}
-    curr_time = 0
-    if int(time['hours']) > 12:
-        curr_time = '{}{}'.format(int(time['hours'])-12, time['minutes'])
-    else:
-        curr_time = '{}{}'.format(time['hours'], time['minutes'])
-    # using 9:31 just to be safe, will switch it to 9:30 once I figure
-    # something out
-    return bool(int(curr_time) < 931)
+    curr_time = '{}'.format(_.strftime('%H%M'))
+    return bool(int(curr_time) > 930 and int(curr_time) < 1600)
 
 
 def return_latest(symbol):
     """Returns the first date in the stocks data"""
     data = av.daily_single_stock(symbol)
-    latest_info = list(data['Time Series (Daily)'].keys())[0]
-    return latest_info
+    if 'Time Series (Daily)' in data:
+        return list(data['Time Series (Daily)'].keys())[0]
+    return None
 
 
 def builder(session, card, out, reprompt, end):

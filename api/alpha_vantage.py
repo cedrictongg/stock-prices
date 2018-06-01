@@ -40,7 +40,6 @@ def daily_single_stock(symbol):
 
 def closed_format_singles(stock_data, stock_date):
     """Formatting the output of closed data"""
-    print(stock_data)
     if 'Meta Data' in stock_data:
         symbol = stock_data['Meta Data']['2. Symbol']
         daily = stock_data['Time Series (Daily)']
